@@ -45,32 +45,45 @@ const Home = () => {
     } catch (err) { console.error("History fetch error", err); }
   };
 
-  const fetchGeoInfo = async (ip = '') => {
-    setError('');
-    try {
-      const url = `https://ipinfo.io/${ip ? ip : ''}/geo?token=`; 
-      
-      if(res.data.bogon) {
-          setError("Invalid or Local IP address (Bogon)");
-          return;
-      }
-      
-      setGeoData(res.data);
+const fetchGeoInfo = async (ip) => {
+  setError('');
+  if (!ip) return;
 
-      if (ip) {
-        await axios.post('http://localhost:8000/api/history', {
-          ip: res.data.ip,
-          geo: res.data
-        }, { headers: { Authorization: `Bearer ${token}` } });
-        fetchHistory();
-      }
-    } catch (err) {
-      setError('Failed to fetch Geo Data. Check IP or Network.');
+  try {
+    const res = await axios.get(`http://ip-api.com/json/${ip}`);
+
+    if (res.data.status === 'fail') {
+      setError(res.data.message);
+      return;
     }
-  };
 
+    setGeoData({
+      ip,
+      city: res.data.city,
+      region: res.data.regionName,
+      country: res.data.country,
+      loc: `${res.data.lat},${res.data.lon}`,
+      org: res.data.isp
+    });
+
+    await axios.post(
+      'http://localhost:8000/api/history',
+      {
+        ip,
+        geo: res.data
+      },
+      {
+        headers: { Authorization: `Bearer ${token}` }
+      }
+    );
+
+    fetchHistory();
+  } catch (err) {
+    console.error(err);
+    setError('Failed to fetch Geo Data');
+  }
+};
   useEffect(() => {
-    fetchGeoInfo(); 
     fetchHistory();
   }, []);
 
